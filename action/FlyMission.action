@@ -1,0 +1,8 @@
+# Define the goal
+uint32 dummy_goal  # Specify the dummy goal
+---
+# Define the result
+uint32 dummy_result # Specify the dummy result
+---
+# Define a feedback message
+float32 percent_complete
