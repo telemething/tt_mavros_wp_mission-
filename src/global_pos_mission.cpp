@@ -17,7 +17,8 @@
 
 #include "UtilitiesGeo.h"
 
-#include <ros_mavros_wp_mission/FlyMissionAction.h>  // Note: "Action" is appended
+//#include <ros_mavros_wp_mission/FlyMissionAction.h>  // Note: "Action" is appended
+#include <tt_mavros_wp_mission/FlyMissionAction.h>  // Note: "Action" is appended
 #include <actionlib/server/simple_action_server.h>
 #include <tt_mavros_wp_mission/WaypointPush.h>
 #include <tt_mavros_wp_mission/WaypointPushRequest.h>
@@ -28,7 +29,7 @@
 #include <ros/console.h>
 
 
-//typedef actionlib::SimpleActionServer<ros_mavros_wp_mission::FlyMissionAction> Server;
+//typedef actionlib::SimpleActionServer<tt_mavros_wp_mission::FlyMissionAction> Server;
 
 //*****************************************************************************
 //*
@@ -37,7 +38,7 @@
 //*
 //*****************************************************************************
 
-//void execute(const ros_mavros_wp_mission::FlyMissionGoalConstPtr& goal, Server* as)  // Note: "Action" is not appended to DoDishes here
+//void execute(const tt_mavros_wp_mission::FlyMissionGoalConstPtr& goal, Server* as)  // Note: "Action" is not appended to DoDishes here
 //{
   // Do lots of awesome groundbreaking robot stuff here
 //  as->setSucceeded();
@@ -53,7 +54,9 @@ sensor_msgs::NavSatFix global_pose;
 void global_pose_cby(const sensor_msgs::NavSatFixConstPtr& msg)
 {
   global_pose = *msg;
-  ROS_INFO("global_pose_cby() : got global position [%d]: %f, %f, %f", global_pose.header.seq, global_pose.latitude, global_pose.longitude, global_pose.altitude);
+  ROS_INFO("global_pose_cby() : got global position [%d]: %f, %f, %f", 
+    global_pose.header.seq, global_pose.latitude, 
+    global_pose.longitude, global_pose.altitude);
 }
 
 //*****************************************************************************
@@ -75,7 +78,8 @@ void state_cby(const mavros_msgs::State::ConstPtr& msg)
 //*
 //*****************************************************************************
 
-int CalcCoords(double lat1, double lon1, double distanceMeters, double bearing, double* lat2, double* lon2)
+int CalcCoords(double lat1, double lon1, double distanceMeters, 
+  double bearing, double* lat2, double* lon2)
 {
   destCoordsInDegrees(lat1, lon1, 
 						 distanceMeters, bearing,
@@ -282,9 +286,9 @@ int main_orig(int argc, char **argv)
 //####################################################################################
 //####################################################################################
 
-typedef actionlib::SimpleActionServer<ros_mavros_wp_mission::FlyMissionAction> Server;
+typedef actionlib::SimpleActionServer<tt_mavros_wp_mission::FlyMissionAction> Server;
 
-/*void execute(const ros_mavros_wp_mission::FlyMissionGoalConstPtr& goal, Server* as)  // Note: "Action" is not appended to DoDishes here
+/*void execute(const tt_mavros_wp_mission::FlyMissionGoalConstPtr& goal, Server* as)  // Note: "Action" is not appended to DoDishes here
 {
   ROS_INFO("Executed");
   
@@ -311,7 +315,7 @@ class GPMission
   protected:
 
     ros::NodeHandle nh_;
-    actionlib::SimpleActionServer<ros_mavros_wp_mission::FlyMissionAction> as_;
+    actionlib::SimpleActionServer<tt_mavros_wp_mission::FlyMissionAction> as_;
     std::string action_name_;
     int goal_ = 0;
     int rate_hz = 10;
@@ -320,8 +324,8 @@ class GPMission
     tt_mavros_wp_mission::MissionStatus missionStatus_;
     std::string landedStateName_ = "Undefined";
 
-    ros_mavros_wp_mission::FlyMissionFeedback feedback_;
-    ros_mavros_wp_mission::FlyMissionResult result_;
+    tt_mavros_wp_mission::FlyMissionFeedback feedback_;
+    tt_mavros_wp_mission::FlyMissionResult result_;
 
     ros::ServiceServer WayointPush_service_;
     ros::ServiceServer StartMission_service_;
@@ -472,9 +476,9 @@ class GPMission
     //*
     //*************************************************************************
 
-    int LoadWayponts()
+    int LoadTestWayponts()
     {
-      ROS_INFO("LoadWayponts() Entered");
+      ROS_INFO("LoadTestWayponts() Entered");
 
       result_.dummy_result = 0;
 
@@ -485,12 +489,13 @@ class GPMission
       srv_wp.request.start_index = 0;
       mavros_msgs::CommandHome set_home_srv;
 
-      ROS_INFO("LoadWayponts() global position [%d]: %f, %f, %f", 
+      ROS_INFO("LoadTestWayponts() global position [%d]: %f, %f, %f", 
         global_pose.header.seq, global_pose.latitude, 
         global_pose.longitude, global_pose.altitude);
 
       mavros_msgs::Waypoint wp;
-      // fill wp
+      
+      // takeoff
       wp.frame = mavros_msgs::Waypoint::FRAME_GLOBAL_REL_ALT;
       wp.command = mavros_msgs::CommandCode::NAV_TAKEOFF;
       wp.is_current   = true;
@@ -500,6 +505,8 @@ class GPMission
       wp.x_lat        = global_pose.latitude;
       wp.y_long       = global_pose.longitude;
       srv_wp.request.waypoints.push_back(wp);
+
+      // waypoints
       wp.command      = mavros_msgs::CommandCode::NAV_WAYPOINT;
       wp.is_current   = false;
       wp.autocontinue = true;
@@ -521,6 +528,7 @@ class GPMission
       ChangeCoords(&wp, 20, 180);
       srv_wp.request.waypoints.push_back(wp);
 
+      // Land
       wp.command      = mavros_msgs::CommandCode::NAV_LAND;
       wp.z_alt        = 0;
       //wp.x_lat        = 47.397506;
@@ -528,6 +536,8 @@ class GPMission
       ChangeCoords(&wp, 20, 270);
       srv_wp.request.waypoints.push_back(wp);
       //...
+
+      DisplayWaypointMission(srv_wp);
 
       if (client_wp.call(srv_wp))
       {
@@ -637,7 +647,7 @@ class GPMission
       {
         Arm(true);
         ClearWayponts();
-        LoadWayponts();
+        LoadTestWayponts();
         StartMission();
         WaitTillDisarmed();
         Arm(false);
@@ -645,6 +655,18 @@ class GPMission
 
       if( as_.isActive() ) 
         as_.setSucceeded(result_);
+    }
+
+    //*************************************************************************
+    //*
+    //*************************************************************************
+    
+    void RunMission()
+    {
+        Arm(true);
+        StartMission();
+        WaitTillDisarmed();
+        Arm(false);
     }
 
     //*************************************************************************
@@ -696,6 +718,31 @@ class GPMission
     //
     //***************************************************************************
    
+    void DisplayWaypointMission( mavros_msgs::WaypointPush srv_wp )
+    {
+      ROS_INFO("--- Waypoint Mission -----------");
+
+      ROS_INFO("start_index = %i, count = %i", 
+        srv_wp.request.start_index, srv_wp.request.waypoints.size());
+
+			for (auto &wp : srv_wp.request.waypoints) 
+      {
+        ROS_INFO("WP : cmd:%i frame:%i current:%i continue:%i lat:%f lon:%f alt:%f p1:%f p2:%f p:3%f p4:%f", 
+          wp.command, wp.frame, wp.is_current, wp.autocontinue, 
+          wp.x_lat, wp.y_long, wp.z_alt, 
+          wp.param1, wp.param2, wp.param3, wp.param4);
+			}
+
+      ROS_INFO("-------------------------------");
+
+    }
+
+    //***************************************************************************
+    //
+    //
+    //
+    //***************************************************************************
+   
     bool WaypointPushServiceCallback( 
       tt_mavros_wp_mission::WaypointPush::Request& request, 
       tt_mavros_wp_mission::WaypointPush::Response& response)
@@ -708,6 +755,8 @@ class GPMission
       
       ROS_INFO("'WaypointPush_service' start_index = %i, count = %i", 
         srv_wp.request.start_index, request.waypoints.size());
+
+      ClearWayponts();
 
 			for (auto &wpIn : request.waypoints) 
       {
@@ -727,6 +776,8 @@ class GPMission
 
         srv_wp.request.waypoints.push_back(wp);
 			}
+
+      DisplayWaypointMission(srv_wp);
 
       if (mavros_mission_push_client.call(srv_wp))
       {
@@ -756,6 +807,8 @@ class GPMission
       tt_mavros_wp_mission::StartMission::Response& response)
     {
       ROS_INFO("StartMissionServiceCallback() Called");
+
+      missionThread_ = boost::thread( boost::bind(&GPMission::RunMission, this) );
 
       response.result = "it's ok";
 
