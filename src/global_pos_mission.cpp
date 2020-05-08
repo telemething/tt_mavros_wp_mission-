@@ -127,7 +127,9 @@ int main_orig(int argc, char **argv)
                                      ("mavros/cmd/arming");
   ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>
                                        ("mavros/set_mode", 1);
-  ros::Subscriber global_pose_sub = nh.subscribe<sensor_msgs::NavSatFix>("mavros/global_position/global", 1, global_pose_cby);
+  //ros::Subscriber global_pose_sub = nh.subscribe<sensor_msgs::NavSatFix>("mavros/global_position/global", 1, global_pose_cby);
+
+  ros::Subscriber global_pose_sub = nh.subscribe<sensor_msgs::NavSatFix>("mavros/global_position/raw/fix", 1, global_pose_cby);
 
   global_pose.header.seq = 0;
 
@@ -904,8 +906,11 @@ class GPMission
       state_sub = nh_.subscribe<mavros_msgs::State>
         ("mavros/state", 10, &GPMission::state_cb, this);
 
+      //global_pose_sub = nh_.subscribe<sensor_msgs::NavSatFix>
+      //  ("mavros/global_position/global", 1, &GPMission::global_pose_cb, this);
+
       global_pose_sub = nh_.subscribe<sensor_msgs::NavSatFix>
-        ("mavros/global_position/global", 1, &GPMission::global_pose_cb, this);
+        ("mavros/global_position/raw/fix", 1, &GPMission::global_pose_cb, this);   
 
       // Register Publishers                                
       local_pos_pub = nh_.advertise<geometry_msgs::PoseStamped>
